@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: always
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+
+  proxy:
+    depends_on:
+      - exporter
+    image: decentralize/caching-proxy
+    restart: always
+    environment:
+      UPSTREAM: "http://exporter:9531"
+      MAX_SIZE: "100m"
+      PROXY_READ_TIMEOUT: "2400s"
+      PROXY_CACHE_VALID: "60s"
+    ports:
+      - "8088:80/tcp"
+
+  exporter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "9531:9531"
+    command: --log.level=debug
+    env_file:
+      - .env
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/dashboard.json:/var/lib/grafana/dashboards/dashboard.json
+      - ./grafana/provisioning:/etc/grafana/provisioning
